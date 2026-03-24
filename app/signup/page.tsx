@@ -1,18 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, Check } from 'lucide-react'
 
-const CHARITIES = [
-    { id: 'irishcancer', name: 'Irish Cancer Society', category: 'Health' },
-    { id: 'focusireland', name: 'Focus Ireland', category: 'Homelessness' },
-    { id: 'pieta', name: 'Pieta House', category: 'Mental Health' },
-    { id: 'ispcc', name: 'ISPCC', category: 'Children' },
-    { id: 'simon', name: 'Simon Community', category: 'Homelessness' },
-    { id: 'aware', name: 'Aware', category: 'Mental Health' },
-]
+interface Charity {
+    id: string
+    name: string
+    category: string
+}
 
 export default function SignupPage() {
     const router = useRouter()
@@ -22,10 +19,23 @@ export default function SignupPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [showPass, setShowPass] = useState(false)
+    const [charities, setCharities] = useState<Charity[]>([])
     const [selectedCharity, setSelectedCharity] = useState('')
     const [contribPct, setContribPct] = useState(10)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+
+    // Load real charities from DB when user reaches step 2
+    useEffect(() => {
+        if (step === 2 && charities.length === 0) {
+            supabase
+                .from('charities')
+                .select('id, name, category')
+                .eq('is_active', true)
+                .order('name')
+                .then(({ data }) => { if (data) setCharities(data) })
+        }
+    }, [step])
 
     async function handleStep1(e: React.FormEvent) {
         e.preventDefault()
@@ -46,20 +56,41 @@ export default function SignupPage() {
         setLoading(true)
         setError('')
 
-        const { error: err } = await supabase.auth.signUp({
+        // 1. Create auth user
+        const { data: authData, error: authErr } = await supabase.auth.signUp({
             email,
             password,
-            options: {
-                data: { full_name: fullName },
-            },
+            options: { data: { full_name: fullName } },
         })
 
-        if (err) {
-            setError(err.message)
+        if (authErr || !authData.user) {
+            setError(authErr?.message ?? 'Failed to create account.')
             setLoading(false)
-        } else {
-            router.push('/dashboard?welcome=1')
+            return
         }
+
+        const userId = authData.user.id
+
+        // The DB trigger auto-creates the profile row on auth.users insert.
+        // Just wait briefly for it to fire, then save charity selection.
+        await new Promise(r => setTimeout(r, 1000))
+
+        // Save charity selection
+        const { error: charityErr } = await supabase
+            .from('user_charity_selections')
+            .insert({
+                user_id: userId,
+                charity_id: selectedCharity,
+                contribution_pct: contribPct,
+                is_active: true,
+            })
+
+        if (charityErr) {
+            // Non-fatal — redirect anyway, user can set from dashboard
+            console.error('Charity selection error:', charityErr.message)
+        }
+
+        router.push('/dashboard?welcome=1')
     }
 
     return (
@@ -72,7 +103,7 @@ export default function SignupPage() {
                     <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '14px' }}>Create your account</p>
                 </div>
 
-                {/* Steps */}
+                {/* Steps indicator */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center', marginBottom: '32px' }}>
                     {[1, 2].map(s => (
                         <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -91,6 +122,7 @@ export default function SignupPage() {
                     {error && <div className="alert alert-error" style={{ marginBottom: '20px' }}>{error}</div>}
 
                     {step === 1 ? (
+                        /* ── STEP 1: Personal details ── */
                         <form onSubmit={handleStep1} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <h1 style={{ fontSize: '1.6rem', marginBottom: '4px', color: 'var(--color-cream)' }}>Create account</h1>
                             <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px' }}>
@@ -118,32 +150,40 @@ export default function SignupPage() {
                             </button>
                         </form>
                     ) : (
+                        /* ── STEP 2: Charity selection ── */
                         <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             <div>
                                 <h2 style={{ fontSize: '1.5rem', marginBottom: '4px', color: 'var(--color-cream)' }}>Choose your charity</h2>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>A portion of your subscription goes directly to them every month.</p>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                {CHARITIES.map(c => (
-                                    <button
-                                        key={c.id}
-                                        type="button"
-                                        onClick={() => setSelectedCharity(c.id)}
-                                        style={{
-                                            padding: '14px 16px',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: `2px solid ${selectedCharity === c.id ? 'var(--color-gold)' : 'var(--border-subtle)'}`,
-                                            background: selectedCharity === c.id ? 'rgba(212,168,83,0.1)' : 'transparent',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            transition: 'all 0.2s',
-                                        }}
-                                    >
-                                        <div style={{ fontSize: '13px', fontWeight: 600, color: selectedCharity === c.id ? 'var(--color-gold)' : 'var(--color-cream)' }}>{c.name}</div>
-                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>{c.category}</div>
-                                    </button>
-                                ))}
-                            </div>
+
+                            {charities.length === 0 ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+                                    <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gold)' }} />
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    {charities.map(c => (
+                                        <button
+                                            key={c.id}
+                                            type="button"
+                                            onClick={() => setSelectedCharity(c.id)}
+                                            style={{
+                                                padding: '14px 16px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: `2px solid ${selectedCharity === c.id ? 'var(--color-gold)' : 'var(--border-subtle)'}`,
+                                                background: selectedCharity === c.id ? 'rgba(212,168,83,0.1)' : 'transparent',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                transition: 'all 0.2s',
+                                            }}
+                                        >
+                                            <div style={{ fontSize: '13px', fontWeight: 600, color: selectedCharity === c.id ? 'var(--color-gold)' : 'var(--color-cream)' }}>{c.name}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>{c.category}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px' }}>
