@@ -41,24 +41,12 @@ const PRIZE_TIERS = [
   { matches: 3, label: '3rd Prize', share: '25%', example: '€75', tier: 'tier-3' },
 ]
 
+import Navbar from '@/app/components/Navbar'
+
 export default function LandingPage() {
   return (
     <div className="page-content">
-      {/* NAVBAR */}
-      <nav className="navbar">
-        <a href="/" className="navbar-logo">
-          Golf<span>Gives</span>
-        </a>
-        <ul className="navbar-links">
-          <li><a href="/charities">Charities</a></li>
-          <li><a href="/how-it-works">How It Works</a></li>
-          <li><a href="/pricing">Pricing</a></li>
-        </ul>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link href="/login" className="btn btn-secondary btn-sm">Log in</Link>
-          <Link href="/signup" className="btn btn-primary btn-sm">Join Now</Link>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* HERO */}
       <section className="hero-bg section" style={{ paddingTop: '140px' }}>

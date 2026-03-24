@@ -35,21 +35,12 @@ const PLANS = [
     },
 ]
 
+import Navbar from '@/app/components/Navbar'
+
 export default function PricingPage() {
     return (
         <div className="page-content">
-            <nav className="navbar">
-                <a href="/" className="navbar-logo">Golf<span>Gives</span></a>
-                <ul className="navbar-links">
-                    <li><a href="/charities">Charities</a></li>
-                    <li><a href="/how-it-works">How It Works</a></li>
-                    <li><a href="/pricing" style={{ color: 'var(--color-gold)' }}>Pricing</a></li>
-                </ul>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <a href="/login" className="btn btn-secondary btn-sm">Log in</a>
-                    <a href="/signup" className="btn btn-primary btn-sm">Join Now</a>
-                </div>
-            </nav>
+            <Navbar active="pricing" />
 
             <section className="section" style={{ paddingTop: '120px' }}>
                 <div className="container">

@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Heart, Loader2 } from 'lucide-react'
+import Navbar from '@/app/components/Navbar'
 
 const AMOUNTS = [5, 10, 25, 50, 100]
 
@@ -187,18 +188,7 @@ function DonateForm() {
 export default function DonatePage() {
     return (
         <div className="page-content">
-            <nav className="navbar">
-                <a href="/" className="navbar-logo">Golf<span>Gives</span></a>
-                <ul className="navbar-links">
-                    <li><a href="/charities">Charities</a></li>
-                    <li><a href="/how-it-works">How It Works</a></li>
-                    <li><a href="/pricing">Pricing</a></li>
-                </ul>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <a href="/login" className="btn btn-secondary btn-sm">Log in</a>
-                    <a href="/signup" className="btn btn-primary btn-sm">Join Now</a>
-                </div>
-            </nav>
+            <Navbar />
 
             <section style={{ paddingTop: '110px', paddingBottom: '80px' }}>
                 <div className="container" style={{ maxWidth: '600px' }}>

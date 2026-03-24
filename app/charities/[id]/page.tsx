@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ExternalLink, Heart, Users, Globe } from 'lucide-react'
 
+import Navbar from '@/app/components/Navbar'
+
 export default async function CharityProfilePage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
     const { id } = await params
@@ -29,18 +31,7 @@ export default async function CharityProfilePage({ params }: { params: Promise<{
     return (
         <div className="page-content">
             {/* NAVBAR */}
-            <nav className="navbar">
-                <a href="/" className="navbar-logo">Golf<span>Gives</span></a>
-                <ul className="navbar-links">
-                    <li><a href="/charities" style={{ color: 'var(--color-gold)' }}>Charities</a></li>
-                    <li><a href="/how-it-works">How It Works</a></li>
-                    <li><a href="/pricing">Pricing</a></li>
-                </ul>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <a href="/login" className="btn btn-secondary btn-sm">Log in</a>
-                    <a href="/signup" className="btn btn-primary btn-sm">Join Now</a>
-                </div>
-            </nav>
+            <Navbar active="charities" />
 
             <section style={{ paddingTop: '110px', paddingBottom: '80px' }}>
                 <div className="container" style={{ maxWidth: '860px' }}>

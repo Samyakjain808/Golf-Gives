@@ -78,24 +78,13 @@ const FAQS = [
     },
 ]
 
+import Navbar from '@/app/components/Navbar'
+
 export default function HowItWorksPage() {
     return (
         <div className="page-content">
             {/* NAVBAR */}
-            <nav className="navbar">
-                <a href="/" className="navbar-logo">
-                    Golf<span>Gives</span>
-                </a>
-                <ul className="navbar-links">
-                    <li><a href="/charities">Charities</a></li>
-                    <li><a href="/how-it-works" style={{ color: 'var(--color-gold)' }}>How It Works</a></li>
-                    <li><a href="/pricing">Pricing</a></li>
-                </ul>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <a href="/login" className="btn btn-secondary btn-sm">Log in</a>
-                    <a href="/signup" className="btn btn-primary btn-sm">Join Now</a>
-                </div>
-            </nav>
+            <Navbar active="how-it-works" />
 
             {/* HERO */}
             <section className="hero-bg section" style={{ paddingTop: '130px', textAlign: 'center' }}>

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import Navbar from '@/app/components/Navbar'
 
 export default async function CharitiesPage({ searchParams }: { searchParams: Promise<{ category?: string; q?: string }> }) {
     const supabase = await createClient()
@@ -15,18 +16,7 @@ export default async function CharitiesPage({ searchParams }: { searchParams: Pr
 
     return (
         <div className="page-content">
-            <nav className="navbar">
-                <a href="/" className="navbar-logo">Golf<span>Gives</span></a>
-                <ul className="navbar-links">
-                    <li><a href="/charities" style={{ color: 'var(--color-gold)' }}>Charities</a></li>
-                    <li><a href="/how-it-works">How It Works</a></li>
-                    <li><a href="/pricing">Pricing</a></li>
-                </ul>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <a href="/login" className="btn btn-secondary btn-sm">Log in</a>
-                    <a href="/signup" className="btn btn-primary btn-sm">Join Now</a>
-                </div>
-            </nav>
+            <Navbar active="charities" />
 
             <section className="section" style={{ paddingTop: '120px' }}>
                 <div className="container">
