@@ -36,8 +36,13 @@ const PLANS = [
 ]
 
 import Navbar from '@/app/components/Navbar'
+import CheckoutButton from './CheckoutButton'
+import { createClient } from '@/lib/supabase/server'
 
-export default function PricingPage() {
+export default async function PricingPage() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
     return (
         <div className="page-content">
             <Navbar active="pricing" />
@@ -91,14 +96,7 @@ export default function PricingPage() {
                                         </li>
                                     ))}
                                 </ul>
-                                <Link
-                                    href={`/signup?plan=${plan.id}`}
-                                    id={`cta-${plan.id}`}
-                                    className={plan.highlight ? 'btn btn-primary' : 'btn btn-secondary'}
-                                    style={{ width: '100%', textAlign: 'center' }}
-                                >
-                                    Get started →
-                                </Link>
+                                <CheckoutButton plan={plan.id} isLoggedIn={!!user} highlight={plan.highlight} />
                             </div>
                         ))}
                     </div>
