@@ -47,13 +47,15 @@ export async function POST(request: NextRequest) {
         customerId = customer.id
     }
 
+    const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
     const session = await stripe.checkout.sessions.create({
         customer: customerId,
         payment_method_types: ['card'],
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?subscription=success`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?cancelled=true`,
+        success_url: `${baseUrl}/dashboard?subscription=success`,
+        cancel_url: `${baseUrl}/pricing?cancelled=true`,
         metadata: { supabase_user_id: user.id, plan },
         subscription_data: { metadata: { supabase_user_id: user.id, plan } },
     })
