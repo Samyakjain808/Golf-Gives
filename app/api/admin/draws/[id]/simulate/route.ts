@@ -26,5 +26,12 @@ export async function POST(
 
     // Run simulation
     const result = await executeDraw(id, config, true)
+
+    // Mark the draw as 'simulated' so the Publish button appears in the UI
+    await adminSupabase!
+        .from('draws')
+        .update({ status: 'simulated' })
+        .eq('id', id)
+
     return NextResponse.json({ simulation: result })
 }
