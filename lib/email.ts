@@ -1,48 +1,49 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 const FROM = process.env.EMAIL_FROM ?? 'noreply@golfcharity.io'
 
 interface DrawResultEmailData {
-    to: string
-    name: string
-    drawMonth: string
-    drawnNumbers: number[]
-    userNumbers: number[]
-    matchCount: number
-    prizeCents?: number
+  to: string
+  name: string
+  drawMonth: string
+  drawnNumbers: number[]
+  userNumbers: number[]
+  matchCount: number
+  prizeCents?: number
 }
 
 interface WinnerAlertEmailData {
-    to: string
-    name: string
-    prizeCents: number
-    drawMonth: string
+  to: string
+  name: string
+  prizeCents: number
+  drawMonth: string
 }
 
 interface SubscriptionEmailData {
-    to: string
-    name: string
-    plan: string
-    nextBillingDate: string
-    status: string
+  to: string
+  name: string
+  plan: string
+  nextBillingDate: string
+  status: string
 }
 
 function formatCurrency(cents: number): string {
-    return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
+  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(cents / 100)
 }
 
 export async function sendDrawResultEmail(data: DrawResultEmailData): Promise<void> {
-    const isWinner = data.matchCount >= 3
-    const subject = isWinner
-        ? `🎉 You won ${formatCurrency(data.prizeCents ?? 0)} in the Golf Charity Draw!`
-        : `Golf Charity Draw Result - ${data.drawMonth}`
+  if (!resend) return console.warn('RESEND_API_KEY missing, skipping email.')
+  const isWinner = data.matchCount >= 3
+  const subject = isWinner
+    ? `🎉 You won ${formatCurrency(data.prizeCents ?? 0)} in the Golf Charity Draw!`
+    : `Golf Charity Draw Result - ${data.drawMonth}`
 
-    await resend.emails.send({
-        from: FROM,
-        to: data.to,
-        subject,
-        html: `
+  await resend!.emails.send({
+    from: FROM,
+    to: data.to,
+    subject,
+    html: `
       <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #f9f5ee;">
         <div style="background: #1a3a2a; padding: 24px; border-radius: 12px; text-align: center; margin-bottom: 24px;">
           <h1 style="color: #d4a853; margin: 0; font-size: 28px;">Golf Charity Draw</h1>
@@ -69,15 +70,16 @@ export async function sendDrawResultEmail(data: DrawResultEmailData): Promise<vo
         </div>
       </div>
     `,
-    })
+  })
 }
 
 export async function sendWinnerAlertEmail(data: WinnerAlertEmailData): Promise<void> {
-    await resend.emails.send({
-        from: FROM,
-        to: data.to,
-        subject: `🏆 Winner Alert: Please Submit Your Proof`,
-        html: `
+  if (!resend) return console.warn('RESEND_API_KEY missing, skipping email.')
+  await resend!.emails.send({
+    from: FROM,
+    to: data.to,
+    subject: `🏆 Winner Alert: Please Submit Your Proof`,
+    html: `
       <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #f9f5ee;">
         <div style="background: #1a3a2a; padding: 24px; border-radius: 12px; text-align: center; margin-bottom: 24px;">
           <h1 style="color: #d4a853; margin: 0;">Congratulations!</h1>
@@ -90,20 +92,21 @@ export async function sendWinnerAlertEmail(data: WinnerAlertEmailData): Promise<
         </div>
       </div>
     `,
-    })
+  })
 }
 
 export async function sendSubscriptionEmail(data: SubscriptionEmailData): Promise<void> {
-    const isActive = data.status === 'active'
-    const subject = isActive
-        ? `✅ Subscription Confirmed - Welcome to Golf Charity!`
-        : `Subscription Update - Golf Charity`
+  if (!resend) return console.warn('RESEND_API_KEY missing, skipping email.')
+  const isActive = data.status === 'active'
+  const subject = isActive
+    ? `✅ Subscription Confirmed - Welcome to Golf Charity!`
+    : `Subscription Update - Golf Charity`
 
-    await resend.emails.send({
-        from: FROM,
-        to: data.to,
-        subject,
-        html: `
+  await resend!.emails.send({
+    from: FROM,
+    to: data.to,
+    subject,
+    html: `
       <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #f9f5ee;">
         <div style="background: #1a3a2a; padding: 24px; border-radius: 12px; text-align: center; margin-bottom: 24px;">
           <h1 style="color: #d4a853; margin: 0;">Golf Charity</h1>
@@ -116,5 +119,5 @@ export async function sendSubscriptionEmail(data: SubscriptionEmailData): Promis
         </div>
       </div>
     `,
-    })
+  })
 }
