@@ -108,14 +108,25 @@ export async function executeDraw(
         .select('id', { count: 'exact', head: true })
         .eq('status', 'active')
 
-    // Fetch previous jackpot carryover
+    // Fetch current draw info
     const { data: draw } = await adminSupabase
         .from('draws')
-        .select('jackpot_cents')
+        .select('draw_month, drawn_numbers, jackpot_cents')
         .eq('id', drawId)
         .single()
 
-    const jackpotCarryover = draw?.jackpot_cents ?? 0
+    // Find the immediately preceding draw's jackpot carryover
+    let jackpotCarryover = 0
+    if (draw?.draw_month) {
+        const { data: prevDraw } = await adminSupabase
+            .from('draws')
+            .select('jackpot_cents')
+            .lt('draw_month', draw.draw_month)
+            .order('draw_month', { ascending: false })
+            .limit(1)
+            .single()
+        jackpotCarryover = prevDraw?.jackpot_cents ?? 0
+    }
 
     // Calculate prize pool
     const pool = calculatePrizePool(
@@ -125,15 +136,21 @@ export async function executeDraw(
         jackpotCarryover
     )
 
-    // Generate draw numbers
-    let drawnNumbers: number[]
-    if (config.use_weighted) {
-        // Fetch all scores for weighted probability
-        const { data: allScores } = await adminSupabase.from('scores').select('score')
-        const scoreValues = allScores?.map((s: { score: number }) => s.score) ?? []
-        drawnNumbers = generateWeightedNumbers(scoreValues)
+    // Generate or reuse draw numbers
+    let drawnNumbers: number[] = draw?.drawn_numbers ?? []
+    
+    // If not simulating and we already generated 5 numbers, lock them in
+    if (!simulate && drawnNumbers.length === 5) {
+        // Keep existing drawnNumbers
     } else {
-        drawnNumbers = generateRandomNumbers()
+        if (config.use_weighted) {
+            // Fetch all scores for weighted probability
+            const { data: allScores } = await adminSupabase.from('scores').select('score')
+            const scoreValues = allScores?.map((s: { score: number }) => s.score) ?? []
+            drawnNumbers = generateWeightedNumbers(scoreValues)
+        } else {
+            drawnNumbers = generateRandomNumbers()
+        }
     }
 
     // Build entries if not simulating
@@ -185,16 +202,16 @@ export async function executeDraw(
         },
     ]
 
-    if (!simulate) {
-        // Persist results to DB
-        await adminSupabase.from('draws').update({
-            drawn_numbers: drawnNumbers,
-            prize_pool_cents: pool.totalCents,
-            jackpot_rolled: jackpotRolled,
-            // If jackpot rolled, carry tier5 pool forward to next draw
-            jackpot_cents: jackpotRolled ? pool.tier5Cents : 0,
-        }).eq('id', drawId)
+    // We always save the numbers & pool to `draws` table so simulation can display them
+    await adminSupabase.from('draws').update({
+        drawn_numbers: drawnNumbers,
+        prize_pool_cents: pool.totalCents,
+        jackpot_rolled: jackpotRolled,
+        // If jackpot rolled, carry tier5 pool forward to next draw
+        jackpot_cents: jackpotRolled ? pool.tier5Cents : 0,
+    }).eq('id', drawId)
 
+    if (!simulate) {
         // Update match counts on entries
         for (const entry of enrichedEntries) {
             await adminSupabase.from('draw_entries')

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminUsersPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -39,7 +41,7 @@ export default async function AdminUsersPage() {
                         </thead>
                         <tbody>
                             {(users as any[] ?? []).map((u) => {
-                                const sub = u.subscriptions?.[0]
+                                const sub = Array.isArray(u.subscriptions) ? u.subscriptions[0] : u.subscriptions
                                 return (
                                     <tr key={u.id}>
                                         <td style={{ color: 'var(--color-cream)', fontWeight: 500 }}>{u.full_name || '—'}</td>
