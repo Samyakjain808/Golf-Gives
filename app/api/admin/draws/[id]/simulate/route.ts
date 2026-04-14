@@ -13,7 +13,7 @@ async function checkAdmin() {
 
 // POST /api/admin/draws/[id]/simulate
 export async function POST(
-    _: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const adminUser = await checkAdmin()
@@ -24,8 +24,24 @@ export async function POST(
     const { data: config } = await adminSupabase.from('draw_config').select('*').single()
     if (!config) return NextResponse.json({ error: 'System config missing' }, { status: 500 })
 
+    // Read the generation method from the request body (optional override)
+    let useWeighted = config.use_weighted
+    try {
+        const body = await request.json()
+        if (body.method === 'weighted') {
+            useWeighted = true
+        } else if (body.method === 'random') {
+            useWeighted = false
+        }
+    } catch {
+        // No body or invalid JSON — use config default
+    }
+
+    // Override the config's use_weighted with the admin's selection
+    const drawConfig = { ...config, use_weighted: useWeighted }
+
     // Run simulation
-    const result = await executeDraw(id, config, true)
+    const result = await executeDraw(id, drawConfig, true)
 
     // Mark the draw as 'simulated' so the Publish button appears in the UI
     await adminSupabase!

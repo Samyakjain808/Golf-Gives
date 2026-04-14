@@ -42,3 +42,31 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ score: result.data }, { status: 201 })
 }
+
+// DELETE /api/scores?id=... - delete a score
+export async function DELETE(request: NextRequest) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'Score id is required' }, { status: 400 })
+
+    // Use adminSupabase to bypass RLS, but verify ownership first
+    const { adminSupabase } = await import('@/lib/supabase/admin')
+    const { data: score } = await adminSupabase
+        .from('scores')
+        .select('user_id')
+        .eq('id', id)
+        .single()
+
+    if (!score || score.user_id !== user.id) {
+        return NextResponse.json({ error: 'Score not found' }, { status: 404 })
+    }
+
+    const { error } = await adminSupabase.from('scores').delete().eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    return NextResponse.json({ success: true })
+}

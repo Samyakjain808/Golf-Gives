@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Zap, Play, CheckCircle, Loader2, Plus } from 'lucide-react'
+import { Zap, Play, CheckCircle, Loader2, Plus, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface Draw {
@@ -17,7 +17,9 @@ export default function AdminDrawsPage() {
     const [draws, setDraws] = useState<Draw[]>([])
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
+    const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null)
     const [newMonth, setNewMonth] = useState('')
+    const [drawMethod, setDrawMethod] = useState<'random' | 'weighted'>('random')
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
 
@@ -48,21 +50,36 @@ export default function AdminDrawsPage() {
 
     async function simulate(drawId: string) {
         setActionLoading(drawId); setError(''); setSuccess('')
-        const res = await fetch(`/api/admin/draws/${drawId}/simulate`, { method: 'POST' })
+        const res = await fetch(`/api/admin/draws/${drawId}/simulate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: drawMethod }),
+        })
         const json = await res.json()
         if (!res.ok) setError(json.error)
-        else { setSuccess('Simulation complete! Review results before publishing.'); fetchDraws() }
+        else { setSuccess(`Simulation complete (${drawMethod === 'weighted' ? 'Algorithmic' : 'Random'} mode)! Review results before publishing.`); fetchDraws() }
         setActionLoading(null)
     }
 
     async function publish(drawId: string) {
-        if (!confirm('Publish this draw? This will notify winners and cannot be undone.')) return
+        setConfirmPublishId(null)
         setActionLoading(drawId); setError(''); setSuccess('')
-        const res = await fetch(`/api/admin/draws/${drawId}/publish`, { method: 'POST' })
-        const json = await res.json()
-        if (!res.ok) setError(json.error)
-        else { setSuccess('Draw published and winners notified!'); fetchDraws() }
-        setActionLoading(null)
+        try {
+            const res = await fetch(`/api/admin/draws/${drawId}/publish`, { method: 'POST' })
+            let json
+            try {
+                json = await res.json()
+            } catch (e) {
+                const text = await res.text()
+                throw new Error(`Server returned invalid response: ${res.status}`)
+            }
+            if (!res.ok) setError(json.error || 'Failed to publish draw')
+            else { setSuccess('Draw published and winners notified!'); fetchDraws() }
+        } catch (err: any) {
+            setError(err.message || 'Network error occurred')
+        } finally {
+            setActionLoading(null)
+        }
     }
 
     return (
@@ -74,39 +91,86 @@ export default function AdminDrawsPage() {
                 </p>
             </div>
 
-            {error && <div className="alert alert-error" style={{ marginBottom: '20px' }}>{error}</div>}
-            {success && <div className="alert alert-success" style={{ marginBottom: '20px' }}>{success}</div>}
+            {error && (
+                <div className="glass" style={{ borderLeft: '4px solid var(--color-red)', padding: '16px', marginBottom: '24px', color: 'var(--color-red)' }}>
+                    {error}
+                </div>
+            )}
+            {success && (
+                <div className="glass" style={{ borderLeft: '4px solid var(--color-green)', padding: '16px', marginBottom: '24px', color: 'var(--color-green)' }}>
+                    {success}
+                </div>
+            )}
 
-            {/* Create new draw */}
-            <div className="glass" style={{ padding: '28px', marginBottom: '28px' }}>
-                <h2 style={{ fontSize: '1.2rem', marginBottom: '20px', color: 'var(--color-cream)' }}>Create a draw</h2>
-                <form onSubmit={createDraw} style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: '200px' }}>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                            Draw month
-                        </label>
-                        <input
-                            id="draw-month-input"
-                            type="month"
-                            value={newMonth}
-                            onChange={e => setNewMonth(e.target.value)}
-                            className="input"
-                            required
-                        />
+            {/* Config & Creation */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+                {/* Method Selection */}
+                <div className="glass" style={{ padding: '24px' }}>
+                    <h3 style={{ fontSize: '1.2rem', color: 'var(--color-cream)', marginBottom: '8px' }}>Generation Method</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>Choose how draw numbers are generated when you simulate.</p>
+
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                        <button
+                            onClick={() => setDrawMethod('random')}
+                            style={{
+                                textAlign: 'left',
+                                padding: '16px',
+                                background: drawMethod === 'random' ? 'rgba(212, 175, 55, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                                border: drawMethod === 'random' ? '1px solid var(--color-gold)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <div style={{ fontWeight: 600, color: 'var(--color-cream)', marginBottom: '4px' }}>🎲 Random</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Pure random — each number 1–45 has equal probability.</div>
+                        </button>
+
+                        <button
+                            onClick={() => setDrawMethod('weighted')}
+                            style={{
+                                textAlign: 'left',
+                                padding: '16px',
+                                background: drawMethod === 'weighted' ? 'rgba(212, 175, 55, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                                border: drawMethod === 'weighted' ? '1px solid var(--color-gold)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <div style={{ fontWeight: 600, color: 'var(--color-cream)', marginBottom: '4px' }}>🧠 Algorithmic (Weighted)</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Numbers that appear more frequently in player scores have a higher probability of being drawn.</div>
+                        </button>
                     </div>
-                    <button
-                        id="create-draw-btn"
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={actionLoading === 'create'}
-                    >
-                        {actionLoading === 'create' ? <Loader2 size={16} /> : <Plus size={16} />}
-                        Create draw
-                    </button>
-                </form>
+                </div>
+
+                <div className="glass" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+                    <h3 style={{ fontSize: '1.2rem', color: 'var(--color-cream)', marginBottom: '24px' }}>Create New Draw</h3>
+                    <form onSubmit={createDraw} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, justifyContent: 'center' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Draw Month
+                            </label>
+                            <input
+                                type="month"
+                                className="input"
+                                style={{ width: '100%', marginBottom: '20px' }}
+                                value={newMonth}
+                                onChange={e => setNewMonth(e.target.value)}
+                                min={format(new Date(), 'yyyy-MM')}
+                                required
+                            />
+                        </div>
+                        <button type="submit" className="btn btn-primary" disabled={actionLoading === 'create' || !newMonth} style={{ width: '100%', justifyContent: 'center' }}>
+                            {actionLoading === 'create' ? <Loader2 size={16} /> : <Plus size={16} />}
+                            Create Draw
+                        </button>
+                    </form>
+                </div>
             </div>
 
-            {/* Draws list */}
+            <h2 style={{ fontSize: '1.5rem', color: 'var(--color-cream)', marginBottom: '24px' }}>Draw History</h2>
+
             {loading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: '120px', borderRadius: 'var(--radius-lg)' }} />)}
@@ -171,15 +235,25 @@ export default function AdminDrawsPage() {
                                             >
                                                 <Play size={14} /> Re-simulate
                                             </button>
-                                            <button
-                                                id={`publish-${draw.id}`}
-                                                onClick={() => publish(draw.id)}
-                                                className="btn btn-primary btn-sm"
-                                                disabled={actionLoading === draw.id}
-                                            >
-                                                {actionLoading === draw.id ? <Loader2 size={14} /> : <CheckCircle size={14} />}
-                                                Publish
-                                            </button>
+                                            
+                                            {confirmPublishId === draw.id ? (
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-red)', padding: '4px', borderRadius: '4px' }}>
+                                                    <AlertCircle size={14} style={{ color: 'var(--color-red)', marginLeft: '4px' }} />
+                                                    <span style={{ fontSize: '12px', color: 'var(--color-cream)', marginRight: '4px' }}>Confirm?</span>
+                                                    <button onClick={() => publish(draw.id)} className="btn btn-primary btn-sm" style={{ padding: '0 8px' }}>Yes</button>
+                                                    <button onClick={() => setConfirmPublishId(null)} className="btn btn-secondary btn-sm" style={{ padding: '0 8px' }}>Cancel</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    id={`publish-${draw.id}`}
+                                                    onClick={() => setConfirmPublishId(draw.id)}
+                                                    className="btn btn-primary btn-sm"
+                                                    disabled={actionLoading === draw.id}
+                                                >
+                                                    {actionLoading === draw.id ? <Loader2 size={14} /> : <CheckCircle size={14} />}
+                                                    Publish
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                     {draw.status === 'published' && (

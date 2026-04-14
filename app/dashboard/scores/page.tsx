@@ -23,12 +23,15 @@ export default function ScoresPage() {
 
     async function fetchScores() {
         setFetchLoading(true)
-        const { data, error } = await supabase
-            .from('scores')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(5)
-        if (!error && data) setScores(data)
+        try {
+            const res = await fetch('/api/scores')
+            const json = await res.json()
+            if (res.ok && json.scores) {
+                setScores(json.scores)
+            }
+        } catch (err) {
+            console.error('Failed to fetch scores:', err)
+        }
         setFetchLoading(false)
     }
 
@@ -63,8 +66,12 @@ export default function ScoresPage() {
     }
 
     async function deleteScore(id: string) {
-        const { error } = await supabase.from('scores').delete().eq('id', id)
-        if (!error) fetchScores()
+        try {
+            const res = await fetch(`/api/scores?id=${id}`, { method: 'DELETE' })
+            if (res.ok) fetchScores()
+        } catch (err) {
+            console.error('Failed to delete score:', err)
+        }
     }
 
     const scoreNums = scores.map(s => s.score)

@@ -72,22 +72,26 @@ export default function SignupPage() {
         const userId = authData.user.id
 
         // The DB trigger auto-creates the profile row on auth.users insert.
-        // Just wait briefly for it to fire, then save charity selection.
-        await new Promise(r => setTimeout(r, 1000))
+        // Wait for the trigger to fire before saving charity selection.
+        await new Promise(r => setTimeout(r, 1500))
 
-        // Save charity selection
-        const { error: charityErr } = await supabase
-            .from('user_charity_selections')
-            .insert({
-                user_id: userId,
-                charity_id: selectedCharity,
-                contribution_pct: contribPct,
-                is_active: true,
+        // Save charity selection via server API (bypasses RLS)
+        try {
+            const charityRes = await fetch('/api/charity-selection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    charity_id: selectedCharity,
+                    contribution_pct: contribPct,
+                }),
             })
-
-        if (charityErr) {
+            if (!charityRes.ok) {
+                const charityJson = await charityRes.json()
+                console.error('Charity selection error:', charityJson.error)
+            }
+        } catch (err) {
             // Non-fatal — redirect anyway, user can set from dashboard
-            console.error('Charity selection error:', charityErr.message)
+            console.error('Charity selection error:', err)
         }
 
         router.push('/dashboard?welcome=1')

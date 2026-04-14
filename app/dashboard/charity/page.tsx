@@ -28,15 +28,30 @@ export default function CharityDashboardPage() {
 
     useEffect(() => {
         async function load() {
-            const [{ data: cList }, { data: sel }] = await Promise.all([
-                supabase.from('charities').select('id, name, category, description').eq('is_active', true).order('name'),
-                supabase.from('user_charity_selections').select('*, charities(name, category)').eq('is_active', true).single(),
-            ])
+            // Fetch charities list (public, RLS allows read of active charities)
+            const { data: cList } = await supabase
+                .from('charities')
+                .select('id, name, category, description')
+                .eq('is_active', true)
+                .order('name')
             if (cList) setCharities(cList)
-            if (sel) {
-                setSelection(sel as unknown as Selection)
-                setSelected(sel.charity_id)
-                setPct(sel.contribution_pct)
+
+            // Fetch current selection via API (uses adminSupabase with explicit user_id filter)
+            try {
+                const res = await fetch('/api/charity-selection')
+                const json = await res.json()
+                if (res.ok && json.selection) {
+                    const sel = json.selection
+                    setSelection({
+                        charity_id: sel.charity_id,
+                        contribution_pct: sel.contribution_pct,
+                        charities: sel.charity ? { name: sel.charity.name, category: sel.charity.category } : { name: '', category: '' },
+                    })
+                    setSelected(sel.charity_id)
+                    setPct(sel.contribution_pct)
+                }
+            } catch (err) {
+                console.error('Failed to fetch charity selection:', err)
             }
         }
         load()
