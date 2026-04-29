@@ -37,10 +37,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                             {label}
                         </Link>
                     ))}
-                    <div className="divider" style={{ margin: '8px 24px' }} />
-                    <Link href="/dashboard" className="sidebar-item">
-                        ← Subscriber view
-                    </Link>
                 </nav>
 
                 <div style={{ padding: '0 24px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>

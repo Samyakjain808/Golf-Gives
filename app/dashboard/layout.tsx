@@ -41,21 +41,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
                             {label}
                         </Link>
                     ))}
-                    {profile?.role === 'admin' && (
-                        <>
-                            <div className="divider" style={{ margin: '8px 24px' }} />
-                            {[
-                                { href: '/admin', label: 'Admin Overview' },
-                                { href: '/admin/draws', label: 'Manage Draws' },
-                                { href: '/admin/users', label: 'Users' },
-                                { href: '/admin/winners', label: 'Winners' },
-                            ].map(({ href, label }) => (
-                                <Link key={href} href={href} className="sidebar-item" style={{ fontSize: '13px' }}>
-                                    {label}
-                                </Link>
-                            ))}
-                        </>
-                    )}
                 </nav>
 
                 <div style={{ padding: '0 24px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', marginTop: '16px' }}>

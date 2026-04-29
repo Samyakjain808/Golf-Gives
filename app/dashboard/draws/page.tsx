@@ -8,7 +8,7 @@ export default async function DrawsPage() {
     if (!user) redirect('/login')
 
     const [{ data: draws }, { data: myEntries }] = await Promise.all([
-        supabase.from('draws').select('*, prizes(*)').eq('status', 'published').order('draw_month', { ascending: false }),
+        supabase.from('draws').select('*, prizes(*)').eq('status', 'visible').order('draw_month', { ascending: false }),
         supabase.from('draw_entries').select('draw_id, entry_numbers, match_count').eq('user_id', user.id),
     ])
 
@@ -41,13 +41,13 @@ export default async function DrawsPage() {
                                 {/* Header */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
                                     <div>
-                                        <div className="badge badge-green" style={{ marginBottom: '8px' }}>Published</div>
+                                        <div className="badge badge-green" style={{ marginBottom: '8px' }}>Released</div>
                                         <h2 style={{ fontSize: '1.4rem', color: 'var(--color-cream)', margin: 0 }}>
                                             {format(new Date(draw.draw_month), 'MMMM yyyy')} Draw
                                         </h2>
-                                        {draw.published_at && (
+                                        {(draw.visible_at || draw.published_at) && (
                                             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                Published {format(new Date(draw.published_at), 'dd MMM yyyy')}
+                                                Released {format(new Date(draw.visible_at || draw.published_at), 'dd MMM yyyy')}
                                             </div>
                                         )}
                                     </div>

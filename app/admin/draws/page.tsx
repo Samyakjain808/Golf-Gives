@@ -1,16 +1,17 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Zap, Play, CheckCircle, Loader2, Plus, AlertCircle } from 'lucide-react'
+import { Zap, Play, CheckCircle, Loader2, Plus, AlertCircle, Eye } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface Draw {
     id: string
     draw_month: string
-    status: 'pending' | 'simulated' | 'published'
+    status: 'pending' | 'simulated' | 'published' | 'visible'
     drawn_numbers: number[]
     prize_pool_cents: number
     jackpot_cents: number
     published_at: string | null
+    visible_at: string | null
 }
 
 export default function AdminDrawsPage() {
@@ -18,6 +19,7 @@ export default function AdminDrawsPage() {
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
     const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null)
+    const [confirmVisibleId, setConfirmVisibleId] = useState<string | null>(null)
     const [newMonth, setNewMonth] = useState('')
     const [drawMethod, setDrawMethod] = useState<'random' | 'weighted'>('random')
     const [error, setError] = useState('')
@@ -70,15 +72,52 @@ export default function AdminDrawsPage() {
             try {
                 json = await res.json()
             } catch (e) {
-                const text = await res.text()
                 throw new Error(`Server returned invalid response: ${res.status}`)
             }
             if (!res.ok) setError(json.error || 'Failed to publish draw')
-            else { setSuccess('Draw published and winners notified!'); fetchDraws() }
+            else { setSuccess('Draw published internally! Results are locked. Use "Make Visible" to release to users.'); fetchDraws() }
         } catch (err: any) {
             setError(err.message || 'Network error occurred')
         } finally {
             setActionLoading(null)
+        }
+    }
+
+    async function makeVisible(drawId: string) {
+        setConfirmVisibleId(null)
+        setActionLoading(drawId); setError(''); setSuccess('')
+        try {
+            const res = await fetch(`/api/admin/draws/${drawId}/make-visible`, { method: 'POST' })
+            let json
+            try {
+                json = await res.json()
+            } catch (e) {
+                throw new Error(`Server returned invalid response: ${res.status}`)
+            }
+            if (!res.ok) setError(json.error || 'Failed to make draw visible')
+            else { setSuccess('Draw is now visible to all users! Notification emails sent.'); fetchDraws() }
+        } catch (err: any) {
+            setError(err.message || 'Network error occurred')
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    function getStatusBadgeClass(status: string) {
+        switch (status) {
+            case 'visible': return 'badge-green'
+            case 'published': return 'badge-gold'
+            case 'simulated': return 'badge-blue'
+            default: return 'badge-gray'
+        }
+    }
+
+    function getStatusLabel(status: string) {
+        switch (status) {
+            case 'visible': return '✅ Visible to Users'
+            case 'published': return '🔒 Published (Internal)'
+            case 'simulated': return '🔬 Simulated'
+            default: return '⏳ Pending'
         }
     }
 
@@ -87,8 +126,25 @@ export default function AdminDrawsPage() {
             <div style={{ marginBottom: '32px' }}>
                 <h1 style={{ fontSize: '2rem', color: 'var(--color-cream)', marginBottom: '8px' }}>🎯 Draw Management</h1>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
-                    Create, simulate, and publish monthly draws. Always simulate before publishing.
+                    Create, simulate, publish, and control visibility of monthly draws.
                 </p>
+            </div>
+
+            {/* Status flow explainer */}
+            <div className="glass" style={{ padding: '20px', marginBottom: '24px', borderLeft: '4px solid var(--color-gold)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-cream)', marginBottom: '8px' }}>Draw Lifecycle</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    <span className="badge badge-gray">⏳ Pending</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span className="badge badge-blue">🔬 Simulated</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span className="badge badge-gold">🔒 Published</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span className="badge badge-green">✅ Visible</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    Users only see draws with <strong style={{ color: 'var(--color-cream)' }}>Visible</strong> status. Published draws are locked internally but hidden from users.
+                </div>
             </div>
 
             {error && (
@@ -189,8 +245,8 @@ export default function AdminDrawsPage() {
                                         <h3 style={{ fontSize: '1.2rem', color: 'var(--color-cream)', margin: 0 }}>
                                             {format(new Date(draw.draw_month), 'MMMM yyyy')}
                                         </h3>
-                                        <span className={`badge ${draw.status === 'published' ? 'badge-green' : draw.status === 'simulated' ? 'badge-blue' : 'badge-gray'}`}>
-                                            {draw.status}
+                                        <span className={`badge ${getStatusBadgeClass(draw.status)}`}>
+                                            {getStatusLabel(draw.status)}
                                         </span>
                                     </div>
 
@@ -210,11 +266,14 @@ export default function AdminDrawsPage() {
                                         {draw.published_at && (
                                             <span>Published: {format(new Date(draw.published_at), 'dd MMM yyyy')}</span>
                                         )}
+                                        {draw.visible_at && (
+                                            <span>Visible: {format(new Date(draw.visible_at), 'dd MMM yyyy')}</span>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Actions */}
-                                <div style={{ display: 'flex', gap: '10px' }}>
+                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                     {draw.status === 'pending' && (
                                         <button
                                             id={`simulate-${draw.id}`}
@@ -239,7 +298,7 @@ export default function AdminDrawsPage() {
                                             {confirmPublishId === draw.id ? (
                                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-red)', padding: '4px', borderRadius: '4px' }}>
                                                     <AlertCircle size={14} style={{ color: 'var(--color-red)', marginLeft: '4px' }} />
-                                                    <span style={{ fontSize: '12px', color: 'var(--color-cream)', marginRight: '4px' }}>Confirm?</span>
+                                                    <span style={{ fontSize: '12px', color: 'var(--color-cream)', marginRight: '4px' }}>Lock results?</span>
                                                     <button onClick={() => publish(draw.id)} className="btn btn-primary btn-sm" style={{ padding: '0 8px' }}>Yes</button>
                                                     <button onClick={() => setConfirmPublishId(null)} className="btn btn-secondary btn-sm" style={{ padding: '0 8px' }}>Cancel</button>
                                                 </div>
@@ -251,13 +310,40 @@ export default function AdminDrawsPage() {
                                                     disabled={actionLoading === draw.id}
                                                 >
                                                     {actionLoading === draw.id ? <Loader2 size={14} /> : <CheckCircle size={14} />}
-                                                    Publish
+                                                    Publish (Lock)
                                                 </button>
                                             )}
                                         </>
                                     )}
                                     {draw.status === 'published' && (
-                                        <div className="badge badge-green">✅ Published</div>
+                                        <>
+                                            {confirmVisibleId === draw.id ? (
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(212, 175, 55, 0.1)', padding: '6px 10px', borderRadius: '6px', border: '1px solid rgba(212, 175, 55, 0.3)' }}>
+                                                    <Eye size={14} style={{ color: 'var(--color-gold)', flexShrink: 0 }} />
+                                                    <span style={{ fontSize: '12px', color: 'var(--color-cream)', whiteSpace: 'nowrap' }}>Release to users?</span>
+                                                    <button onClick={() => makeVisible(draw.id)} className="btn btn-primary btn-sm" style={{ padding: '2px 10px', fontSize: '12px' }}>
+                                                        Yes, Make Visible
+                                                    </button>
+                                                    <button onClick={() => setConfirmVisibleId(null)} className="btn btn-secondary btn-sm" style={{ padding: '2px 10px', fontSize: '12px' }}>
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    id={`make-visible-${draw.id}`}
+                                                    onClick={() => setConfirmVisibleId(draw.id)}
+                                                    className="btn btn-primary btn-sm"
+                                                    disabled={actionLoading === draw.id}
+                                                    style={{ background: 'linear-gradient(135deg, var(--color-gold-dark), var(--color-gold))', color: '#1a1a1a' }}
+                                                >
+                                                    {actionLoading === draw.id ? <Loader2 size={14} /> : <Eye size={14} />}
+                                                    Make Visible to Users
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    {draw.status === 'visible' && (
+                                        <div className="badge badge-green">✅ Visible to Users</div>
                                     )}
                                 </div>
                             </div>

@@ -22,7 +22,7 @@ export default async function DashboardPage() {
         supabase.from('scores').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
         supabase.from('subscriptions').select('*').eq('user_id', user.id).eq('status', 'active').single(),
         supabase.from('user_charity_selections').select('*, charities(name, category)').eq('user_id', user.id).eq('is_active', true).single(),
-        supabase.from('draws').select('*').eq('status', 'published').order('draw_month', { ascending: false }).limit(1).single(),
+        supabase.from('draws').select('*').eq('status', 'visible').order('draw_month', { ascending: false }).limit(1).single(),
         supabase.from('winners').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3),
     ])
 

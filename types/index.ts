@@ -1,7 +1,7 @@
 export type UserRole = 'subscriber' | 'admin'
 export type SubscriptionStatus = 'active' | 'inactive' | 'cancelled' | 'lapsed' | 'trialing' | 'pending'
 export type PlanType = 'monthly' | 'yearly'
-export type DrawStatus = 'pending' | 'simulated' | 'published'
+export type DrawStatus = 'pending' | 'simulated' | 'published' | 'visible'
 export type VerificationStatus = 'pending' | 'approved' | 'rejected'
 export type PaymentStatus = 'pending' | 'paid'
 
@@ -71,6 +71,7 @@ export interface Draw {
   jackpot_cents: number
   jackpot_rolled: boolean
   published_at: string | null
+  visible_at: string | null
   created_at: string
 }
 

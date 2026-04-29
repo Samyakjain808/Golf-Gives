@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabase } from '@/lib/supabase/admin'
 import { executeDraw } from '@/lib/draw-engine'
-import { sendDrawResultEmail, sendWinnerAlertEmail } from '@/lib/email'
 
 async function checkAdmin() {
     const supabase = await createClient()
@@ -13,6 +12,8 @@ async function checkAdmin() {
 }
 
 // POST /api/admin/draws/[id]/publish
+// Locks draw results and creates winner records.
+// Does NOT make the draw visible to users — use /make-visible for that.
 export async function POST(
     _: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -22,16 +23,16 @@ export async function POST(
 
     const { id } = await params
 
-    // Ensure not already published
+    // Ensure not already published or visible
     const { data: draw } = await adminSupabase.from('draws').select('status, draw_month').eq('id', id).single()
-    if (draw?.status === 'published') {
+    if (draw?.status === 'published' || draw?.status === 'visible') {
         return NextResponse.json({ error: 'Already published' }, { status: 400 })
     }
 
     const { data: config } = await adminSupabase.from('draw_config').select('*').single()
     if (!config) return NextResponse.json({ error: 'System config missing' }, { status: 500 })
 
-    // Execute and persist
+    // Execute and persist — locks results, creates winner records
     const result = await executeDraw(id, config, false)
 
     await adminSupabase
@@ -39,46 +40,8 @@ export async function POST(
         .update({ status: 'published', published_at: new Date().toISOString() })
         .eq('id', id)
 
-    // Notify all participants asynchronously
-    const { data: entries } = await adminSupabase
-        .from('draw_entries')
-        .select('*, profile:profiles(email, full_name)')
-        .eq('draw_id', id)
-
-    if (entries) {
-        const monthStr = new Date(draw!.draw_month).toLocaleString('en-IE', { month: 'long', year: 'numeric' })
-
-        // Fire and forget email sends
-        Promise.all(entries.map(async (entry: any) => {
-            if (!entry.profile?.email) return
-
-            // Determine prize if winner
-            let prizeCents = 0
-            if (entry.match_count >= 3) {
-                const prizeTier = result.prizes.find(p => p.tier === entry.match_count)
-                prizeCents = prizeTier?.perWinnerCents ?? 0
-            }
-
-            await sendDrawResultEmail({
-                to: entry.profile.email,
-                name: entry.profile.full_name ?? 'Subscriber',
-                drawMonth: monthStr,
-                drawnNumbers: result.drawnNumbers,
-                userNumbers: entry.entry_numbers,
-                matchCount: entry.match_count,
-                prizeCents: prizeCents > 0 ? prizeCents : undefined,
-            }).catch(console.error)
-
-            if (prizeCents > 0) {
-                await sendWinnerAlertEmail({
-                    to: entry.profile.email,
-                    name: entry.profile.full_name ?? 'Winner',
-                    prizeCents,
-                    drawMonth: monthStr,
-                }).catch(console.error)
-            }
-        })).catch(console.error)
-    }
+    // Emails are NOT sent here — they are sent when admin makes the draw visible
+    // via POST /api/admin/draws/[id]/make-visible
 
     return NextResponse.json({ success: true, draw: result })
 }

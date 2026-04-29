@@ -114,8 +114,8 @@ export default async function AdminDashboardPage() {
                                             {new Date(draw.draw_month).toLocaleDateString('en-IE', { month: 'long', year: 'numeric' })}
                                         </td>
                                         <td>
-                                            <span className={`badge ${draw.status === 'published' ? 'badge-green' : draw.status === 'simulated' ? 'badge-blue' : 'badge-gray'}`}>
-                                                {draw.status}
+                                            <span className={`badge ${draw.status === 'visible' ? 'badge-green' : draw.status === 'published' ? 'badge-gold' : draw.status === 'simulated' ? 'badge-blue' : 'badge-gray'}`}>
+                                                {draw.status === 'visible' ? '✅ visible' : draw.status === 'published' ? '🔒 published' : draw.status}
                                             </span>
                                         </td>
                                         <td style={{ color: 'var(--color-gold)', fontWeight: 600 }}>€{(draw.prize_pool_cents / 100).toFixed(0)}</td>
